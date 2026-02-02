@@ -38,6 +38,8 @@ class EGLWindow : public Window {
                                              EGLContext sharedContext = nullptr,
                                              std::shared_ptr<ColorSpace> colorSpace = nullptr);
 
+  static std::shared_ptr<EGLWindow> Make(EGLContext sharedContext = nullptr, bool makeCurrent = false);
+
   /**
    * Sets the presentation time for the next frame in microseconds. This is only applicable on
    * Android. The presentation time will be forwarded to the SurfaceTexture.getTimestamp() method.

@@ -134,4 +134,13 @@ void EGLWindow::onPresent(Context*) {
   }
   eglSwapBuffers(eglDisplay, eglSurface);
 }
+
+std::shared_ptr<EGLWindow>
+EGLWindow::Make(EGLContext sharedContext, bool makeCurrent) {
+    auto device = EGLDevice::Make(sharedContext, makeCurrent);
+    if (device == nullptr) {
+        return nullptr;
+    }
+    return std::shared_ptr<EGLWindow>(new EGLWindow(device));
+}
 }  // namespace tgfx

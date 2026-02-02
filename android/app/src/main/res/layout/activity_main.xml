@@ -4,7 +4,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-    <org.tgfx.hello2d.TGFXView
+    <org.tgfx.hello2d.TGSurfaceView
             android:id="@+id/tgfx_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />

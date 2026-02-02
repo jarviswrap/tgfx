@@ -48,6 +48,8 @@ class EGLDevice : public GLDevice {
 
   bool sharableWith(void* nativeHandle) const override;
 
+  void setNativeWindow(EGLNativeWindowType nativeWindow, std::shared_ptr<ColorSpace> colorSpace = nullptr);
+
  protected:
   bool onLockContext() override;
   void onUnlockContext() override;
@@ -72,7 +74,8 @@ class EGLDevice : public GLDevice {
   static std::shared_ptr<EGLDevice> Wrap(EGLDisplay eglDisplay, EGLSurface eglSurface,
                                          EGLContext eglContext, EGLContext shareContext,
                                          bool externallyOwned,
-                                         std::shared_ptr<ColorSpace> colorSpace = nullptr);
+                                         std::shared_ptr<ColorSpace> colorSpace = nullptr,
+                                         bool makeCurrent = false);
 
   EGLDevice(std::unique_ptr<GPU> gpu, void* nativeHandle,
             std::shared_ptr<ColorSpace> colorSpace = nullptr);

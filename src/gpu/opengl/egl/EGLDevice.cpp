@@ -85,7 +85,7 @@ std::shared_ptr<GLDevice> GLDevice::Current() {
   return EGLDevice::Wrap(eglDisplay, eglSurface, eglContext, nullptr, true);
 }
 
-std::shared_ptr<GLDevice> GLDevice::Make(void* sharedContext) {
+std::shared_ptr<GLDevice> GLDevice::Make(void* sharedContext, bool makeCurrent) {
   auto eglGlobals = EGLGlobals::Get();
   std::vector<EGLint> attributes = GetValidAttributes(eglGlobals->pbufferSurfaceAttributes);
   auto eglSurface =
@@ -101,7 +101,7 @@ std::shared_ptr<GLDevice> GLDevice::Make(void* sharedContext) {
     return nullptr;
   }
   auto device =
-      EGLDevice::Wrap(eglGlobals->display, eglSurface, eglContext, eglShareContext, false);
+      EGLDevice::Wrap(eglGlobals->display, eglSurface, eglContext, eglShareContext, false, nullptr, makeCurrent);
   if (device == nullptr) {
     eglDestroyContext(eglGlobals->display, eglContext);
     eglDestroySurface(eglGlobals->display, eglSurface);
@@ -170,7 +170,8 @@ std::shared_ptr<EGLDevice> EGLDevice::MakeFrom(EGLNativeWindowType nativeWindow,
 std::shared_ptr<EGLDevice> EGLDevice::Wrap(EGLDisplay eglDisplay, EGLSurface eglSurface,
                                            EGLContext eglContext, EGLContext shareContext,
                                            bool externallyOwned,
-                                           std::shared_ptr<ColorSpace> colorSpace) {
+                                           std::shared_ptr<ColorSpace> colorSpace,
+                                           bool makeCurrent) {
   auto glContext = GLDevice::Get(eglContext);
   if (glContext) {
     return std::static_pointer_cast<EGLDevice>(glContext);
@@ -206,7 +207,7 @@ std::shared_ptr<EGLDevice> EGLDevice::Wrap(EGLDisplay eglDisplay, EGLSurface egl
     device->shareContext = shareContext;
     device->weakThis = device;
   }
-  if (oldEglContext != eglContext) {
+  if (!makeCurrent && oldEglContext != eglContext) {
     eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     if (oldEglDisplay) {
       eglMakeCurrent(oldEglDisplay, oldEglDrawSurface, oldEglReadSurface, oldEglContext);
@@ -273,5 +274,54 @@ void EGLDevice::onUnlockContext() {
     // 可能失败。
     eglMakeCurrent(oldEglDisplay, oldEglDrawSurface, oldEglReadSurface, oldEglContext);
   }
+}
+
+void EGLDevice::setNativeWindow(EGLNativeWindowType nativeWindow, std::shared_ptr<ColorSpace> cs) {
+    auto eglGlobals = EGLGlobals::Get();
+#if defined(_WIN32)
+    eglSurface = CreateFixedSizeSurfaceForAngle(nativeWindow, eglGlobals);
+  if (cs != nullptr && !ColorSpace::Equals(cs.get(), ColorSpace::SRGB().get())) {
+    LOGE(
+        "EGLDevice::MakeFrom() The specified ColorSpace is not supported on this platform. "
+        "Rendering may have color inaccuracies.");
+  }
+#else
+    std::vector<EGLint> attributes = {};
+    bool isDisplayP3Supported = false;
+    if (ColorSpace::Equals(cs.get(), ColorSpace::DisplayP3().get())) {
+        const char* extensions = eglQueryString(eglGlobals->display, EGL_EXTENSIONS);
+        if (extensions && strstr(extensions, "EGL_EXT_gl_colorspace_display_p3_passthrough")) {
+            attributes = {EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT};
+            isDisplayP3Supported = true;
+        }
+    }
+    if (cs != nullptr && !ColorSpace::Equals(cs.get(), ColorSpace::SRGB().get()) &&
+        !isDisplayP3Supported) {
+        LOGE(
+                "EGLDevice::MakeFrom() The specified ColorSpace is not supported on this platform. "
+                "Rendering may have color inaccuracies.");
+    }
+    attributes.insert(attributes.end(), eglGlobals->windowSurfaceAttributes.begin(),
+                      eglGlobals->windowSurfaceAttributes.end());
+    attributes = GetValidAttributes(attributes);
+    if (eglSurface && eglDisplay) {
+        eglDestroySurface(eglDisplay, eglSurface);
+    }
+    eglSurface = eglCreateWindowSurface(eglGlobals->display, eglGlobals->windowConfig,
+                                             nativeWindow, attributes.data());
+#endif
+    oldEglContext = eglGetCurrentContext();
+    oldEglDisplay = eglGetCurrentDisplay();
+    oldEglReadSurface = eglGetCurrentSurface(EGL_READ);
+    oldEglDrawSurface = eglGetCurrentSurface(EGL_DRAW);
+    if (oldEglContext != eglContext || eglSurface != oldEglDrawSurface) {
+        auto result = eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+        if (!result) {
+            eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            if (oldEglDisplay) {
+                eglMakeCurrent(oldEglDisplay, oldEglDrawSurface, oldEglReadSurface, oldEglContext);
+            }
+        }
+    }
 }
 }  // namespace tgfx

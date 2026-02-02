@@ -9,7 +9,7 @@
             android:supportsRtl="true"
             android:theme="@style/Theme.Hello2D">
         <activity
-                android:name=".MainActivity"
+                android:name=".MainActivity2"
                 android:exported="true"
                 android:theme="@style/Theme.Hello2D"
                 android:colorMode="wideColorGamut">

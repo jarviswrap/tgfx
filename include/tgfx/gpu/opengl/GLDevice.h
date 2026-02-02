@@ -40,7 +40,7 @@ class GLDevice : public Device {
   /**
    * Creates a new GLDevice with specified shared OpenGL context.
    */
-  static std::shared_ptr<GLDevice> Make(void* sharedContext = nullptr);
+  static std::shared_ptr<GLDevice> Make(void* sharedContext = nullptr, bool makeCurrent = false);
 
   /**
    * Creates a new GLDevice. If the creation fails, it will return a pre-created GLDevice. If that
